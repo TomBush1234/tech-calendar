@@ -45,6 +45,19 @@
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
+            position: relative;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            cursor: pointer;
+            color: #4b5563;
+        }
+        
+        .close-button:hover {
+            color: #111827;
         }
         
         .rotate-icon {
@@ -63,7 +76,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <div class="version-badge">v1.03</div>
+    <div class="version-badge">v1.04</div>
 
     <!-- Main App -->
     <script type="text/babel">
@@ -94,6 +107,13 @@
             return (
                 <div className="modal-backdrop" onClick={() => onOpenChange(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={() => onOpenChange(false)} 
+                            className="close-button"
+                            aria-label="Close dialog"
+                        >
+                            <Icon name="x" size={24} />
+                        </button>
                         {children}
                     </div>
                 </div>
@@ -483,7 +503,7 @@
         };
         
         // Event Creator Component
-        const EventCreator = ({ onSaveEvent, onCancel, editEvent = null }) => {
+        const EventCreator = ({ onSaveEvent, onCancel, onDeleteEvent, editEvent = null }) => {
             const [isRecurring, setIsRecurring] = useState(editEvent ? editEvent.type === 'recurring' : false);
             const [formData, setFormData] = useState(() => {
                 if (editEvent) {
@@ -555,6 +575,12 @@
                     ...prev,
                     type: newValue
                 }));
+            };
+
+            const handleDelete = () => {
+                if (confirm(`Are you sure you want to delete "${editEvent.title}"? This cannot be undone.`)) {
+                    onDeleteEvent(editEvent);
+                }
             };
             
             const handleSubmit = (e) => {
@@ -852,7 +878,7 @@
                             </div>
                         </div>
                         
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex flex-wrap gap-3 pt-2">
                             <button
                                 type="submit"
                                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -866,6 +892,16 @@
                             >
                                 Cancel
                             </button>
+                            
+                            {editEvent && (
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 ml-auto"
+                                >
+                                    Delete Event
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>
@@ -1036,6 +1072,43 @@
             const toggleView = () => {
                 console.log("Toggle view, current mode:", viewMode);
                 setViewMode(viewMode === 'calendar' ? 'sponsors' : 'calendar');
+            };
+            
+            // Handle deleting an event
+            const handleDeleteEvent = (event) => {
+                if (event.type === 'recurring') {
+                    // Delete recurring event
+                    if (event.id && event.id.startsWith('recurring-')) {
+                        // It's a locally created recurring event
+                        const updatedRecurring = localRecurringEvents.filter(e => e.id !== event.id);
+                        setLocalRecurringEvents(updatedRecurring);
+                        localStorage.setItem('techCalendarRecurringEvents', JSON.stringify(updatedRecurring));
+                    } else {
+                        // It's a base event, we'll add a "tombstone" or just filter it out of our view
+                        // For now, just filter it locally
+                        const updatedRecurring = localRecurringEvents.filter(e => e.id !== event.id);
+                        setLocalRecurringEvents(updatedRecurring);
+                        localStorage.setItem('techCalendarRecurringEvents', JSON.stringify(updatedRecurring));
+                    }
+                } else {
+                    // Delete one-time event
+                    if (event.id && event.id.startsWith('event-')) {
+                        // It's a locally created event
+                        const updatedEvents = localEvents.filter(e => e.id !== event.id);
+                        setLocalEvents(updatedEvents);
+                        localStorage.setItem('techCalendarEvents', JSON.stringify(updatedEvents));
+                    } else {
+                        // It's a base event, we'll filter it locally
+                        const updatedEvents = localEvents.filter(e => e.id !== event.id);
+                        setLocalEvents(updatedEvents);
+                        localStorage.setItem('techCalendarEvents', JSON.stringify(updatedEvents));
+                    }
+                }
+                
+                // Show success message and close editor
+                alert(`Event "${event.title}" has been deleted.`);
+                setIsCreateEventOpen(false);
+                setEditingEvent(null);
             };
 
             const recurringEvents = useMemo(() => {
@@ -1497,6 +1570,7 @@
                                     setEditingEvent(null);
                                     setIsCreateEventOpen(false);
                                 }}
+                                onDeleteEvent={handleDeleteEvent}
                                 editEvent={editingEvent}
                             />
                         </DialogContent>
