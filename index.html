@@ -103,6 +103,95 @@
             <h3 className="text-xl font-semibold">{children}</h3>
         );
         
+        // Admin Panel for exporting events
+        const AdminPanel = ({ eventData }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            
+            const handleExportJSON = () => {
+                // Create formatted JSON string
+                const jsonData = JSON.stringify(eventData, null, 2);
+                
+                // Create blob and download link
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'events.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            const handleCopyJSON = () => {
+                const jsonData = JSON.stringify(eventData, null, 2);
+                navigator.clipboard.writeText(jsonData)
+                    .then(() => alert('JSON copied to clipboard!'))
+                    .catch(err => alert('Failed to copy: ' + err));
+            };
+            
+            return (
+                <>
+                    <button 
+                        onClick={() => setIsOpen(true)}
+                        className="fixed bottom-4 right-4 bg-gray-700 text-white p-2 rounded-full shadow-lg hover:bg-gray-600"
+                        title="Admin Tools"
+                    >
+                        <Icon name="settings" size={24} />
+                    </button>
+                    
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogContent className="sm:max-w-xl">
+                            <DialogHeader>
+                                <DialogTitle>Admin Tools</DialogTitle>
+                            </DialogHeader>
+                            
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-lg font-medium mb-2">Export Options</h3>
+                                    <p className="text-gray-600 mb-4">
+                                        Export the current calendar data to update your events.json file.
+                                    </p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={handleExportJSON}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                        >
+                                            <Icon name="download" />
+                                            <span>Download events.json</span>
+                                        </button>
+                                        <button
+                                            onClick={handleCopyJSON}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                        >
+                                            <Icon name="clipboard" />
+                                            <span>Copy to Clipboard</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                                    <div className="flex items-start">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <Icon name="info" className="text-yellow-400" />
+                                        </div>
+                                        <div className="ml-3">
+                                            <h3 className="text-sm font-medium text-yellow-800">Important Note</h3>
+                                            <div className="text-sm text-yellow-700 mt-2">
+                                                <p>
+                                                    Changes made to events are stored in your browser's local storage. 
+                                                    To make these changes permanent in the GitHub repository, download 
+                                                    the updated events.json file and replace the existing one in your repo.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </>
+            );
+        };
+        
         // Sponsors View Component
         const SponsorsView = ({ eventData, recurringEvents, formatDate, onEventClick }) => {
             const [expandedSponsors, setExpandedSponsors] = useState({});
@@ -485,27 +574,75 @@
             
             return targetDay;
         }
+        
+        // Function to merge original data with local storage data
+        const mergeWithLocalStorage = (originalData) => {
+            const localEvents = localStorage.getItem('techCalendarEvents');
+            
+            if (!localEvents) {
+                return originalData;
+            }
+            
+            try {
+                const parsedLocalEvents = JSON.parse(localEvents);
+                
+                // Return merged data
+                return {
+                    recurring: originalData.recurring,
+                    oneTime: [...originalData.oneTime, ...parsedLocalEvents]
+                };
+            } catch (error) {
+                console.error('Error parsing local events:', error);
+                return originalData;
+            }
+        };
 
         const TechCalendar = () => {
-            const [eventData, setEventData] = useState({ recurring: [], oneTime: [] });
+            const [baseEventData, setBaseEventData] = useState({ recurring: [], oneTime: [] });
+            const [localEvents, setLocalEvents] = useState([]);
             const [selectedEvent, setSelectedEvent] = useState(null);
             const [isDialogOpen, setIsDialogOpen] = useState(false);
             const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'sponsors'
             const [error, setError] = useState(null);
             const [loading, setLoading] = useState(true);
             const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+            
+            // Combined event data (base + local)
+            const eventData = useMemo(() => {
+                return {
+                    recurring: baseEventData.recurring,
+                    oneTime: [...baseEventData.oneTime, ...localEvents]
+                };
+            }, [baseEventData, localEvents]);
 
+            // Load events from remote and local storage
             useEffect(() => {
-                // Try to fetch events.json from multiple possible locations
-                const attemptFetch = async () => {
+                const loadEvents = async () => {
                     setLoading(true);
+                    
+                    // Try to load events from local storage first
+                    const storedEvents = localStorage.getItem('techCalendarEvents');
+                    let localEventsList = [];
+                    
+                    if (storedEvents) {
+                        try {
+                            localEventsList = JSON.parse(storedEvents);
+                            setLocalEvents(localEventsList);
+                        } catch (error) {
+                            console.error('Error parsing local events:', error);
+                            // Clear corrupted data
+                            localStorage.removeItem('techCalendarEvents');
+                        }
+                    }
+                    
+                    // Then try to fetch events from remote
                     const possiblePaths = [
-                        './public/data/events.json',  // First try the specific path you mentioned
-                        './data/events.json',         // Then try a simpler path
-                        './events.json'               // Finally try at the root
+                        './public/data/events.json',
+                        './data/events.json',
+                        './events.json'
                     ];
                     
-                    let fetched = false;
+                    let fetchedRemote = false;
                     
                     for (const path of possiblePaths) {
                         try {
@@ -515,8 +652,8 @@
                             if (response.ok) {
                                 const data = await response.json();
                                 console.log('Data fetched successfully from:', path);
-                                setEventData(data);
-                                fetched = true;
+                                setBaseEventData(data);
+                                fetchedRemote = true;
                                 break;
                             }
                         } catch (err) {
@@ -524,14 +661,17 @@
                         }
                     }
                     
-                    if (!fetched) {
+                    if (!fetchedRemote && localEventsList.length === 0) {
                         setError("Couldn't load calendar data. Please check the events.json location.");
+                    } else if (!fetchedRemote) {
+                        // We have local events but no remote - create an empty base
+                        setBaseEventData({ recurring: [], oneTime: [] });
                     }
                     
                     setLoading(false);
                 };
                 
-                attemptFetch();
+                loadEvents();
             }, []);
 
             // Initialize feather icons after render
@@ -602,17 +742,18 @@
             
             // Handle creating a new event
             const handleSaveEvent = (newEvent) => {
-                // Add the new event to the eventData
-                setEventData(prev => ({
-                    ...prev,
-                    oneTime: [...prev.oneTime, newEvent]
-                }));
+                // Add the new event to local storage
+                const updatedLocalEvents = [...localEvents, newEvent];
+                setLocalEvents(updatedLocalEvents);
+                
+                // Save to localStorage
+                localStorage.setItem('techCalendarEvents', JSON.stringify(updatedLocalEvents));
                 
                 // Close the create event dialog
                 setIsCreateEventOpen(false);
                 
                 // Show a success message
-                alert(`Event "${newEvent.title}" has been created!`);
+                alert(`Event "${newEvent.title}" has been created and saved to your browser!`);
             };
 
             if (loading) {
@@ -677,6 +818,23 @@
                             </button>
                         </div>
                     </div>
+                    
+                    {/* Message about local storage */}
+                    {localEvents.length > 0 && (
+                        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <Icon name="info" className="text-blue-400" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm text-blue-700">
+                                        You have {localEvents.length} locally created event{localEvents.length !== 1 ? 's' : ''}.
+                                        Use the Admin Tools button at the bottom right to export all events.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Calendar View */}
                     {viewMode === 'calendar' && (
@@ -735,6 +893,11 @@
                                                     </div>
                                                 </div>
                                             ))}
+                                            {getEventsForMonth(index).length === 0 && (
+                                                <div className="text-gray-500 italic text-center p-2">
+                                                    No events scheduled
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -833,6 +996,9 @@
                             />
                         </DialogContent>
                     </Dialog>
+                    
+                    {/* Admin Panel */}
+                    <AdminPanel eventData={eventData} />
                 </div>
             );
         };
