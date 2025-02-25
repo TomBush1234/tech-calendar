@@ -4,24 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EmpoweredAI Tech Community Events</title>
-    <!-- Add favicon to prevent 404 errors -->
+    
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
     
-    <!-- React with Babel for JSX support -->
+    <!-- React with Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-    <!-- Make Lucide icons accessible to our app -->
-    <script>
-        // Make sure icons are available globally
-        window.LucideIcons = window.lucide || {};
-    </script>
-    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Include Feather Icons for better compatibility -->
+    <script src="https://unpkg.com/feather-icons/dist/feather.min.js"></script>
     
     <style>
         body {
@@ -56,12 +52,28 @@
     <div id="root"></div>
 
     <!-- Main App -->
-    <script type="text/babel" data-type="module">
-        const { useState, useEffect, useMemo, useRef, Fragment } = React;
-        // Access Lucide icons from the global object
-        const { Calendar, Clock, Star, Building2, DollarSign, MapPin, Users, Download, Zap } = window.lucide.icons;
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
         
-        // Simple Dialog component to replace shadcn/ui
+        // Simple icon component using Feather Icons
+        const Icon = ({ name, className = "" }) => {
+            const iconRef = useRef();
+            
+            useEffect(() => {
+                if (iconRef.current && window.feather) {
+                    feather.replace({
+                        'width': 16,
+                        'height': 16
+                    });
+                }
+            }, []);
+            
+            return (
+                <i ref={iconRef} data-feather={name} className={className}></i>
+            );
+        };
+        
+        // Simple Dialog component
         const Dialog = ({ open, onOpenChange, children }) => {
             if (!open) return null;
             
@@ -144,6 +156,13 @@
                     });
             }, []);
 
+            // Initialize feather icons after render
+            useEffect(() => {
+                if (window.feather) {
+                    feather.replace();
+                }
+            });
+
             const recurringEvents = useMemo(() => {
                 const events = [];
                 const year = 2025;
@@ -204,7 +223,7 @@
                             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                         >
                             {showSponsors ? 'Show Calendar' : 'See Sponsors'}
-                            <Users className="w-5 h-5" />
+                            <Icon name="users" />
                         </button>
                     </div>
 
@@ -220,19 +239,19 @@
                         
                         <div className="flex flex-wrap gap-4 justify-center">
                             <div className="flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-yellow-500" />
+                                <Icon name="zap" className="text-yellow-500" />
                                 <span>Major Event</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Star className="w-4 h-4" />
+                                <Icon name="star" />
                                 <span>News Worthy</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Building2 className="w-4 h-4" />
+                                <Icon name="home" />
                                 <span>Has Sponsors</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4" />
+                                <Icon name="dollar-sign" />
                                 <span>Needs Sponsors</span>
                             </div>
                         </div>
@@ -257,10 +276,10 @@
                                                     {new Date(event.date).getDate()}: {event.title}
                                                 </span>
                                                 <div className="flex items-center gap-1">
-                                                    {event.needsSponsors && <DollarSign className="w-4 h-4" />}
-                                                    {event.sponsors?.length > 0 && <Building2 className="w-4 h-4" />}
-                                                    {event.newsWorthy && <Star className="w-4 h-4" />}
-                                                    {event.isMajor && <Zap className="w-5 h-5 text-yellow-500" />}
+                                                    {event.needsSponsors && <Icon name="dollar-sign" />}
+                                                    {event.sponsors?.length > 0 && <Icon name="home" />}
+                                                    {event.newsWorthy && <Icon name="star" />}
+                                                    {event.isMajor && <Icon name="zap" className="text-yellow-500" />}
                                                 </div>
                                             </div>
                                         </div>
@@ -279,48 +298,48 @@
                                 <div className="space-y-4">
                                     <p>{selectedEvent.description}</p>
                                     <div className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4" />
+                                        <Icon name="calendar" />
                                         <span>{formatDate(selectedEvent.date)}</span>
                                     </div>
                                     {selectedEvent.location && (
                                         <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4" />
+                                            <Icon name="map-pin" />
                                             <span>{selectedEvent.location}</span>
                                         </div>
                                     )}
                                     {selectedEvent.organizer && (
                                         <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4" />
+                                            <Icon name="user" />
                                             <span>Organizer: {selectedEvent.organizer}</span>
                                         </div>
                                     )}
                                     {selectedEvent.organizers && (
                                         <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4" />
+                                            <Icon name="users" />
                                             <span>Organizers: {selectedEvent.organizers.join(', ')}</span>
                                         </div>
                                     )}
                                     {selectedEvent.sponsors?.length > 0 && (
                                         <div className="flex items-center gap-2">
-                                            <Building2 className="w-4 h-4" />
+                                            <Icon name="home" />
                                             <span>Sponsors: {selectedEvent.sponsors.join(', ')}</span>
                                         </div>
                                     )}
                                     {selectedEvent.needsSponsors && (
                                         <div className="flex items-center gap-2 text-amber-600">
-                                            <DollarSign className="w-4 h-4" />
+                                            <Icon name="dollar-sign" />
                                             <span>Seeking Sponsors</span>
                                         </div>
                                     )}
                                     {selectedEvent.isMajor && (
                                         <div className="flex items-center gap-2 text-yellow-500">
-                                            <Zap className="w-4 h-4" />
+                                            <Icon name="zap" />
                                             <span>Major Event</span>
                                         </div>
                                     )}
                                     {selectedEvent.newsWorthy && (
                                         <div className="flex items-center gap-2">
-                                            <Star className="w-4 h-4" />
+                                            <Icon name="star" />
                                             <span>News Worthy Event</span>
                                         </div>
                                     )}
@@ -333,7 +352,7 @@
                                         }}
                                         className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
                                     >
-                                        <Download className="w-4 h-4" />
+                                        <Icon name="download" />
                                         Add to Calendar
                                     </a>
                                 </div>
@@ -380,6 +399,7 @@
             );
         };
 
+        // Make sure the DOM is loaded before rendering
         ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
