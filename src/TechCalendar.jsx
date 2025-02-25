@@ -412,7 +412,10 @@
                             {showSponsors ? 'Tech Community Sponsors' : '2025 Tech Community Calendar'}
                         </h1>
                         <button
-                            onClick={() => setShowSponsors(!showSponsors)}
+                            onClick={() => {
+                                console.log("Toggle button clicked, current state:", showSponsors);
+                                setShowSponsors(prevState => !prevState);
+                            }}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                         >
                             {showSponsors ? (
@@ -429,75 +432,82 @@
                         </button>
                     </div>
 
-                    {!showSponsors ? (
-                        <>
-                            <div className="space-y-6 mb-8">
-                                <div className="flex flex-wrap gap-4 justify-center">
-                                    {Object.entries(EVENT_COLORS).map(([type, color]) => (
-                                        <div key={type} className="flex items-center gap-2">
-                                            <div className={`w-4 h-4 rounded ${color}`}></div>
-                                            <span className="capitalize">{type}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                <div className="flex flex-wrap gap-4 justify-center">
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="zap" className="text-yellow-500" />
-                                        <span>Major Event</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="star" />
-                                        <span>News Worthy</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="home" />
-                                        <span>Has Sponsors</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="dollar-sign" />
-                                        <span>Needs Sponsors</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {MONTHS.map((month, index) => (
-                                    <div key={month} className="bg-white rounded-lg shadow-md p-4">
-                                        <h2 className="text-xl font-semibold mb-4">{month}</h2>
-                                        <div className="space-y-2">
-                                            {getEventsForMonth(index).map(event => (
-                                                <div
-                                                    key={event.id}
-                                                    onClick={() => handleEventClick(event)}
-                                                    className={`${EVENT_COLORS[event.type]} p-2 rounded cursor-pointer hover:opacity-90 transition-opacity`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <span className={`${event.isMajor ? 'text-lg font-bold' : ''}`}>
-                                                            {new Date(event.date).getDate()}: {event.title}
-                                                        </span>
-                                                        <div className="flex items-center gap-1">
-                                                            {event.needsSponsors && <Icon name="dollar-sign" />}
-                                                            {event.sponsors?.length > 0 && <Icon name="home" />}
-                                                            {event.newsWorthy && <Icon name="star" />}
-                                                            {event.isMajor && <Icon name="zap" className="text-yellow-500" />}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                    {/* Debugging */}
+                    <div className="mb-4 p-2 bg-gray-100 border rounded">
+                        <p>Debug: Current view: <strong>{showSponsors ? 'Sponsors View' : 'Calendar View'}</strong></p>
+                    </div>
+                    
+                    {/* Calendar View */}
+                    <div style={{ display: showSponsors ? 'none' : 'block' }}>
+                        <div className="space-y-6 mb-8">
+                            <div className="flex flex-wrap gap-4 justify-center">
+                                {Object.entries(EVENT_COLORS).map(([type, color]) => (
+                                    <div key={type} className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded ${color}`}></div>
+                                        <span className="capitalize">{type}</span>
                                     </div>
                                 ))}
                             </div>
-                        </>
-                    ) : (
+                            
+                            <div className="flex flex-wrap gap-4 justify-center">
+                                <div className="flex items-center gap-2">
+                                    <Icon name="zap" className="text-yellow-500" />
+                                    <span>Major Event</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Icon name="star" />
+                                    <span>News Worthy</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Icon name="home" />
+                                    <span>Has Sponsors</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Icon name="dollar-sign" />
+                                    <span>Needs Sponsors</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {MONTHS.map((month, index) => (
+                                <div key={month} className="bg-white rounded-lg shadow-md p-4">
+                                    <h2 className="text-xl font-semibold mb-4">{month}</h2>
+                                    <div className="space-y-2">
+                                        {getEventsForMonth(index).map(event => (
+                                            <div
+                                                key={event.id}
+                                                onClick={() => handleEventClick(event)}
+                                                className={`${EVENT_COLORS[event.type]} p-2 rounded cursor-pointer hover:opacity-90 transition-opacity`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`${event.isMajor ? 'text-lg font-bold' : ''}`}>
+                                                        {new Date(event.date).getDate()}: {event.title}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        {event.needsSponsors && <Icon name="dollar-sign" />}
+                                                        {event.sponsors?.length > 0 && <Icon name="home" />}
+                                                        {event.newsWorthy && <Icon name="star" />}
+                                                        {event.isMajor && <Icon name="zap" className="text-yellow-500" />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {/* Sponsors View */}
+                    <div style={{ display: showSponsors ? 'block' : 'none' }}>
                         <SponsorsView 
                             eventData={eventData} 
                             recurringEvents={recurringEvents} 
                             formatDate={formatDate}
                             onEventClick={handleEventClick}
                         />
-                    )}
+                    </div>
 
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         {selectedEvent && (
