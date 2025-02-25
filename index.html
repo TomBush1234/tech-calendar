@@ -63,7 +63,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <div class="version-badge">v1.02</div>
+    <div class="version-badge">v1.03</div>
 
     <!-- Main App -->
     <script type="text/babel">
@@ -126,60 +126,68 @@
             ];
             
             // Process one-time events
-            eventData.oneTime.forEach(event => {
-                const startDate = new Date(event.date);
-                // End date is start date + 1 hour by default
-                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-                
-                const formattedStart = formatDateForICal(startDate);
-                const formattedEnd = formatDateForICal(endDate);
-                
-                icalContent.push('BEGIN:VEVENT');
-                icalContent.push(`UID:${event.id}@empoweredai.org`);
-                icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
-                icalContent.push(`DTSTART:${formattedStart}`);
-                icalContent.push(`DTEND:${formattedEnd}`);
-                icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
-                icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
-                
-                if (event.location) {
-                    icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
-                }
-                
-                if (event.organizer) {
-                    icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizer)}:MAILTO:info@empoweredai.org`);
-                }
-                
-                icalContent.push('END:VEVENT');
-            });
+            if (eventData.oneTime && Array.isArray(eventData.oneTime)) {
+                eventData.oneTime.forEach(event => {
+                    if (!event || !event.date) return; // Skip invalid events
+                    
+                    const startDate = new Date(event.date);
+                    // End date is start date + 1 hour by default
+                    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                    
+                    const formattedStart = formatDateForICal(startDate);
+                    const formattedEnd = formatDateForICal(endDate);
+                    
+                    icalContent.push('BEGIN:VEVENT');
+                    icalContent.push(`UID:${event.id}@empoweredai.org`);
+                    icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
+                    icalContent.push(`DTSTART:${formattedStart}`);
+                    icalContent.push(`DTEND:${formattedEnd}`);
+                    icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
+                    icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
+                    
+                    if (event.location) {
+                        icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
+                    }
+                    
+                    if (event.organizer) {
+                        icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizer)}:MAILTO:info@empoweredai.org`);
+                    }
+                    
+                    icalContent.push('END:VEVENT');
+                });
+            }
             
             // Process recurring events with recurring instances pre-calculated
-            recurringEvents.forEach(event => {
-                const startDate = new Date(event.date);
-                // End date is start date + 1 hour by default
-                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-                
-                const formattedStart = formatDateForICal(startDate);
-                const formattedEnd = formatDateForICal(endDate);
-                
-                icalContent.push('BEGIN:VEVENT');
-                icalContent.push(`UID:${event.id}@empoweredai.org`);
-                icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
-                icalContent.push(`DTSTART:${formattedStart}`);
-                icalContent.push(`DTEND:${formattedEnd}`);
-                icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
-                icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
-                
-                if (event.location) {
-                    icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
-                }
-                
-                if (event.organizers && event.organizers.length > 0) {
-                    icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizers.join(', '))}:MAILTO:info@empoweredai.org`);
-                }
-                
-                icalContent.push('END:VEVENT');
-            });
+            if (recurringEvents && Array.isArray(recurringEvents)) {
+                recurringEvents.forEach(event => {
+                    if (!event || !event.date) return; // Skip invalid events
+                    
+                    const startDate = new Date(event.date);
+                    // End date is start date + 1 hour by default
+                    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                    
+                    const formattedStart = formatDateForICal(startDate);
+                    const formattedEnd = formatDateForICal(endDate);
+                    
+                    icalContent.push('BEGIN:VEVENT');
+                    icalContent.push(`UID:${event.id}@empoweredai.org`);
+                    icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
+                    icalContent.push(`DTSTART:${formattedStart}`);
+                    icalContent.push(`DTEND:${formattedEnd}`);
+                    icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
+                    icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
+                    
+                    if (event.location) {
+                        icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
+                    }
+                    
+                    if (event.organizers && event.organizers.length > 0) {
+                        icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizers.join(', '))}:MAILTO:info@empoweredai.org`);
+                    }
+                    
+                    icalContent.push('END:VEVENT');
+                });
+            }
             
             icalContent.push('END:VCALENDAR');
             return icalContent.join('\r\n');
@@ -362,22 +370,26 @@
                 };
                 
                 // Process one-time events
-                eventData.oneTime.forEach(event => {
-                    if (event.sponsors && event.sponsors.length > 0) {
-                        event.sponsors.forEach(sponsor => {
-                            processEventForSponsor(event, sponsor);
-                        });
-                    }
-                });
+                if (eventData.oneTime && Array.isArray(eventData.oneTime)) {
+                    eventData.oneTime.forEach(event => {
+                        if (event.sponsors && event.sponsors.length > 0) {
+                            event.sponsors.forEach(sponsor => {
+                                processEventForSponsor(event, sponsor);
+                            });
+                        }
+                    });
+                }
                 
                 // Process recurring events
-                recurringEvents.forEach(event => {
-                    if (event.sponsors && event.sponsors.length > 0) {
-                        event.sponsors.forEach(sponsor => {
-                            processEventForSponsor(event, sponsor);
-                        });
-                    }
-                });
+                if (recurringEvents && Array.isArray(recurringEvents)) {
+                    recurringEvents.forEach(event => {
+                        if (event.sponsors && event.sponsors.length > 0) {
+                            event.sponsors.forEach(sponsor => {
+                                processEventForSponsor(event, sponsor);
+                            });
+                        }
+                    });
+                }
                 
                 // Convert to array and sort by sponsor name
                 return Array.from(sponsors.entries())
@@ -908,8 +920,12 @@
             // Combined event data (base + local)
             const eventData = useMemo(() => {
                 return {
-                    recurring: [...baseEventData.recurring, ...localRecurringEvents],
-                    oneTime: [...baseEventData.oneTime, ...localEvents]
+                    recurring: Array.isArray(baseEventData.recurring) 
+                        ? [...baseEventData.recurring, ...localRecurringEvents]
+                        : [...localRecurringEvents],
+                    oneTime: Array.isArray(baseEventData.oneTime)
+                        ? [...baseEventData.oneTime, ...localEvents]
+                        : [...localEvents]
                 };
             }, [baseEventData, localEvents, localRecurringEvents]);
 
@@ -962,11 +978,26 @@
                             const response = await fetch(path);
                             
                             if (response.ok) {
-                                const data = await response.json();
-                                console.log('Data fetched successfully from:', path);
-                                setBaseEventData(data);
-                                fetchedRemote = true;
-                                break;
+                                try {
+                                    const data = await response.json();
+                                    console.log('Data fetched successfully from:', path);
+                                    
+                                    // Ensure data has the correct structure
+                                    const safeData = {
+                                        recurring: Array.isArray(data.recurring) ? data.recurring : [],
+                                        oneTime: Array.isArray(data.oneTime) ? data.oneTime : []
+                                    };
+                                    
+                                    setBaseEventData(safeData);
+                                    fetchedRemote = true;
+                                    break;
+                                } catch (parseError) {
+                                    console.error('Error parsing JSON:', parseError);
+                                    // JSON was invalid, use empty arrays
+                                    setBaseEventData({ recurring: [], oneTime: [] });
+                                    fetchedRemote = true;
+                                    break;
+                                }
                             }
                         } catch (err) {
                             console.log(`Failed to fetch from ${path}:`, err);
@@ -1011,32 +1042,42 @@
                 const events = [];
                 const year = 2025;
 
-                eventData.recurring.forEach(event => {
-                    for (let month = 0; month < 12; month++) {
-                        event.occurrences.forEach(occurrence => {
-                            const date = getNthDayOfMonth(year, month, event.dayOfWeek, occurrence);
-                            if (date) {
-                                events.push({
-                                    ...event,
-                                    date: date.toISOString(),
-                                    id: `${event.id}-${date.toISOString()}`
-                                });
-                            }
-                        });
-                    }
-                });
+                if (eventData.recurring && Array.isArray(eventData.recurring)) {
+                    eventData.recurring.forEach(event => {
+                        if (!event.dayOfWeek || !event.occurrences || !Array.isArray(event.occurrences)) {
+                            return; // Skip invalid recurring events
+                        }
+                        
+                        for (let month = 0; month < 12; month++) {
+                            event.occurrences.forEach(occurrence => {
+                                const date = getNthDayOfMonth(year, month, event.dayOfWeek, occurrence);
+                                if (date) {
+                                    events.push({
+                                        ...event,
+                                        date: date.toISOString(),
+                                        id: `${event.id}-${date.toISOString()}`
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
 
                 return events;
             }, [eventData.recurring]);
 
             const getEventsForMonth = (monthIndex) => {
-                const oneTimeEvents = eventData.oneTime.filter(
-                    event => new Date(event.date).getMonth() === monthIndex
-                );
+                const oneTimeEvents = eventData.oneTime && Array.isArray(eventData.oneTime) 
+                    ? eventData.oneTime.filter(
+                        event => event.date && new Date(event.date).getMonth() === monthIndex
+                      )
+                    : [];
 
-                const monthlyRecurringEvents = recurringEvents.filter(
-                    event => new Date(event.date).getMonth() === monthIndex
-                );
+                const monthlyRecurringEvents = recurringEvents && Array.isArray(recurringEvents)
+                    ? recurringEvents.filter(
+                        event => event.date && new Date(event.date).getMonth() === monthIndex
+                      )
+                    : [];
 
                 return [...oneTimeEvents, ...monthlyRecurringEvents].sort(
                     (a, b) => new Date(a.date) - new Date(b.date)
@@ -1060,11 +1101,11 @@
                 let originalEvent = event;
                 
                 // If this is a recurring event instance, find the original template
-                if (event.id.includes('-202')) { // It's a recurring instance with date in ID
+                if (event.id && event.id.includes('-202')) { // It's a recurring instance with date in ID
                     const baseId = event.id.split('-2')[0]; // Get the base ID part
                     
                     // Look for the original recurring event
-                    const recurringTemplate = eventData.recurring.find(e => e.id === baseId);
+                    const recurringTemplate = eventData.recurring.find(e => e && e.id === baseId);
                     if (recurringTemplate) {
                         originalEvent = {
                             ...recurringTemplate,
@@ -1092,7 +1133,7 @@
                         // Update recurring event
                         let updatedRecurring;
                         
-                        if (selectedEvent.id.startsWith('recurring-')) {
+                        if (selectedEvent.id && selectedEvent.id.startsWith('recurring-')) {
                             // It's a locally created recurring event
                             updatedRecurring = localRecurringEvents.map(event => 
                                 event.id === selectedEvent.id ? newEvent : event
@@ -1112,7 +1153,7 @@
                         }
                     } else {
                         // Update one-time event
-                        if (selectedEvent.id.startsWith('event-')) {
+                        if (selectedEvent.id && selectedEvent.id.startsWith('event-')) {
                             // It's a locally created event
                             const updatedEvents = localEvents.map(event => 
                                 event.id === selectedEvent.id ? newEvent : event
@@ -1178,8 +1219,12 @@
                                             <li>events.json (at root)</li>
                                         </ul>
                                     </li>
+                                    <li>If your file exists but is empty, make sure it has at least this structure:
+                                        <pre className="bg-gray-100 p-2 mt-2 rounded">
+                                            {JSON.stringify({ recurring: [], oneTime: [] }, null, 2)}
+                                        </pre>
+                                    </li>
                                     <li>If you need to move the file, copy it to the root directory of your repository.</li>
-                                    <li>Ensure the file has proper JSON format.</li>
                                 </ol>
                             </div>
                         </div>
@@ -1350,7 +1395,7 @@
                                             <span>{formatDate(selectedEvent.date)}</span>
                                         </div>
                                     )}
-                                    {selectedEvent.type === 'recurring' && !selectedEvent.instanceDate && (
+                                    {selectedEvent.type === 'recurring' && !selectedEvent.instanceDate && selectedEvent.dayOfWeek !== undefined && selectedEvent.occurrences && Array.isArray(selectedEvent.occurrences) && (
                                         <div className="flex items-center gap-2">
                                             <Icon name="repeat" />
                                             <span>
@@ -1377,13 +1422,13 @@
                                             <span>Organizer: {selectedEvent.organizer}</span>
                                         </div>
                                     )}
-                                    {selectedEvent.organizers && (
+                                    {selectedEvent.organizers && Array.isArray(selectedEvent.organizers) && (
                                         <div className="flex items-center gap-2">
                                             <Icon name="users" />
                                             <span>Organizers: {selectedEvent.organizers.join(', ')}</span>
                                         </div>
                                     )}
-                                    {selectedEvent.sponsors?.length > 0 && (
+                                    {selectedEvent.sponsors && Array.isArray(selectedEvent.sponsors) && selectedEvent.sponsors.length > 0 && (
                                         <div className="flex items-center gap-2">
                                             <Icon name="home" />
                                             <span>Sponsors: {selectedEvent.sponsors.join(', ')}</span>
