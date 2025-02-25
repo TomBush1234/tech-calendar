@@ -63,7 +63,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <div class="version-badge">v1.01</div>
+    <div class="version-badge">v1.02</div>
 
     <!-- Main App -->
     <script type="text/babel">
@@ -112,8 +112,93 @@
             <h3 className="text-xl font-semibold">{children}</h3>
         );
         
+        // iCalendar helper functions
+        const generateICalendar = (eventData, recurringEvents) => {
+            let icalContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//EmpoweredAI//Tech Community Calendar//EN',
+                'X-WR-CALNAME:EmpoweredAI Tech Community Events',
+                'X-WR-CALDESC:Calendar for EmpoweredAI Tech Community Events',
+                'X-WR-TIMEZONE:America/New_York',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH'
+            ];
+            
+            // Process one-time events
+            eventData.oneTime.forEach(event => {
+                const startDate = new Date(event.date);
+                // End date is start date + 1 hour by default
+                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                
+                const formattedStart = formatDateForICal(startDate);
+                const formattedEnd = formatDateForICal(endDate);
+                
+                icalContent.push('BEGIN:VEVENT');
+                icalContent.push(`UID:${event.id}@empoweredai.org`);
+                icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
+                icalContent.push(`DTSTART:${formattedStart}`);
+                icalContent.push(`DTEND:${formattedEnd}`);
+                icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
+                icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
+                
+                if (event.location) {
+                    icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
+                }
+                
+                if (event.organizer) {
+                    icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizer)}:MAILTO:info@empoweredai.org`);
+                }
+                
+                icalContent.push('END:VEVENT');
+            });
+            
+            // Process recurring events with recurring instances pre-calculated
+            recurringEvents.forEach(event => {
+                const startDate = new Date(event.date);
+                // End date is start date + 1 hour by default
+                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                
+                const formattedStart = formatDateForICal(startDate);
+                const formattedEnd = formatDateForICal(endDate);
+                
+                icalContent.push('BEGIN:VEVENT');
+                icalContent.push(`UID:${event.id}@empoweredai.org`);
+                icalContent.push(`DTSTAMP:${formatDateForICal(new Date())}`);
+                icalContent.push(`DTSTART:${formattedStart}`);
+                icalContent.push(`DTEND:${formattedEnd}`);
+                icalContent.push(`SUMMARY:${escapeICalText(event.title)}`);
+                icalContent.push(`DESCRIPTION:${escapeICalText(event.description)}`);
+                
+                if (event.location) {
+                    icalContent.push(`LOCATION:${escapeICalText(event.location)}`);
+                }
+                
+                if (event.organizers && event.organizers.length > 0) {
+                    icalContent.push(`ORGANIZER;CN=${escapeICalText(event.organizers.join(', '))}:MAILTO:info@empoweredai.org`);
+                }
+                
+                icalContent.push('END:VEVENT');
+            });
+            
+            icalContent.push('END:VCALENDAR');
+            return icalContent.join('\r\n');
+        };
+        
+        const formatDateForICal = (date) => {
+            return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        };
+        
+        const escapeICalText = (text) => {
+            if (!text) return '';
+            return text.replace(/[\\\n;,]/g, (match) => {
+                if (match === '\n') return '\\n';
+                return '\\' + match;
+            });
+        };
+        
         // Admin Panel for exporting events
-        const AdminPanel = ({ eventData }) => {
+        const AdminPanel = ({ eventData, recurringEvents, onResetLocalEvents }) => {
             const [isOpen, setIsOpen] = useState(false);
             
             const handleExportJSON = () => {
@@ -135,6 +220,25 @@
                 navigator.clipboard.writeText(jsonData)
                     .then(() => alert('JSON copied to clipboard!'))
                     .catch(err => alert('Failed to copy: ' + err));
+            };
+            
+            const handleExportICalendar = () => {
+                const icalContent = generateICalendar(eventData, recurringEvents);
+                const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'empoweredai_events.ics';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            const handleResetLocalEvents = () => {
+                if (confirm('Are you sure you want to reset all local events? This will remove all events you have created or modified locally.')) {
+                    onResetLocalEvents();
+                    alert('Local events have been reset. The page will now reload.');
+                    window.location.reload();
+                }
             };
             
             return (
@@ -159,7 +263,7 @@
                                     <p className="text-gray-600 mb-4">
                                         Export the current calendar data to update your events.json file.
                                     </p>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-wrap gap-3">
                                         <button
                                             onClick={handleExportJSON}
                                             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -177,6 +281,34 @@
                                     </div>
                                 </div>
                                 
+                                <div>
+                                    <h3 className="text-lg font-medium mb-2">Calendar Subscription</h3>
+                                    <p className="text-gray-600 mb-4">
+                                        Download the iCalendar file to import or subscribe in your calendar application.
+                                    </p>
+                                    <button
+                                        onClick={handleExportICalendar}
+                                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                                    >
+                                        <Icon name="calendar" />
+                                        <span>Download Calendar (.ics)</span>
+                                    </button>
+                                </div>
+                                
+                                <div>
+                                    <h3 className="text-lg font-medium mb-2 text-red-600">Danger Zone</h3>
+                                    <p className="text-gray-600 mb-4">
+                                        Reset all locally stored events. This cannot be undone.
+                                    </p>
+                                    <button
+                                        onClick={handleResetLocalEvents}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                    >
+                                        <Icon name="trash-2" />
+                                        <span>Reset All Local Events</span>
+                                    </button>
+                                </div>
+                                
                                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                                     <div className="flex items-start">
                                         <div className="flex-shrink-0 mt-0.5">
@@ -185,10 +317,14 @@
                                         <div className="ml-3">
                                             <h3 className="text-sm font-medium text-yellow-800">Important Note</h3>
                                             <div className="text-sm text-yellow-700 mt-2">
-                                                <p>
+                                                <p className="mb-2">
                                                     Changes made to events are stored in your browser's local storage. 
                                                     To make these changes permanent in the GitHub repository, download 
                                                     the updated events.json file and replace the existing one in your repo.
+                                                </p>
+                                                <p>
+                                                    The calendar subscription file (.ics) can be imported into Google Calendar, 
+                                                    Apple Calendar, Outlook, and other calendar applications.
                                                 </p>
                                             </div>
                                         </div>
@@ -857,6 +993,14 @@
                 }
             });
             
+            // Handle reset of local events
+            const handleResetLocalEvents = () => {
+                localStorage.removeItem('techCalendarEvents');
+                localStorage.removeItem('techCalendarRecurringEvents');
+                setLocalEvents([]);
+                setLocalRecurringEvents([]);
+            };
+            
             // Handle toggle between calendar and sponsors view
             const toggleView = () => {
                 console.log("Toggle view, current mode:", viewMode);
@@ -1089,7 +1233,7 @@
                                 <div className="ml-3">
                                     <p className="text-sm text-blue-700">
                                         You have {localEvents.length + localRecurringEvents.length} locally created/modified event{(localEvents.length + localRecurringEvents.length) !== 1 ? 's' : ''}.
-                                        Use the Admin Tools button at the bottom right to export all events.
+                                        Use the Admin Tools button at the bottom right to export all events or reset your local events.
                                     </p>
                                 </div>
                             </div>
@@ -1267,8 +1411,24 @@
                                         href="#"
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            // TODO: Implement calendar download
-                                            alert('Calendar download feature coming soon!');
+                                            // Generate iCal for a single event
+                                            const icalContent = generateICalendar(
+                                                { 
+                                                    oneTime: [selectedEvent.instanceDate ? 
+                                                        {...selectedEvent, date: selectedEvent.instanceDate} : 
+                                                        selectedEvent
+                                                    ],
+                                                    recurring: []
+                                                }, 
+                                                []
+                                            );
+                                            const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `${selectedEvent.title.replace(/\s+/g, '_')}.ics`;
+                                            a.click();
+                                            URL.revokeObjectURL(url);
                                         }}
                                         className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
                                     >
@@ -1298,7 +1458,11 @@
                     </Dialog>
                     
                     {/* Admin Panel */}
-                    <AdminPanel eventData={eventData} />
+                    <AdminPanel 
+                        eventData={eventData} 
+                        recurringEvents={recurringEvents}
+                        onResetLocalEvents={handleResetLocalEvents}
+                    />
                 </div>
             );
         };
