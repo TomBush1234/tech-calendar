@@ -136,24 +136,45 @@
             const [isDialogOpen, setIsDialogOpen] = useState(false);
             const [showSponsors, setShowSponsors] = useState(false);
             const [error, setError] = useState(null);
+            const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                // Use relative path for GitHub Pages
-                fetch('./events.json')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Failed to load calendar data');
+                // Try to fetch events.json from multiple possible locations
+                const attemptFetch = async () => {
+                    setLoading(true);
+                    const possiblePaths = [
+                        './public/data/events.json',  // First try the specific path you mentioned
+                        './data/events.json',         // Then try a simpler path
+                        './events.json'               // Finally try at the root
+                    ];
+                    
+                    let fetched = false;
+                    
+                    for (const path of possiblePaths) {
+                        try {
+                            console.log(`Attempting to fetch from: ${path}`);
+                            const response = await fetch(path);
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                console.log('Data fetched successfully from:', path);
+                                setEventData(data);
+                                fetched = true;
+                                break;
+                            }
+                        } catch (err) {
+                            console.log(`Failed to fetch from ${path}:`, err);
                         }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Data fetched successfully', data);
-                        setEventData(data);
-                    })
-                    .catch(err => {
-                        console.error('Error fetching data:', err);
-                        setError(err.message);
-                    });
+                    }
+                    
+                    if (!fetched) {
+                        setError("Couldn't load calendar data. Please check the events.json location.");
+                    }
+                    
+                    setLoading(false);
+                };
+                
+                attemptFetch();
             }, []);
 
             // Initialize feather icons after render
@@ -210,8 +231,34 @@
                 });
             };
 
+            if (loading) {
+                return <div className="text-center p-4">Loading calendar data...</div>;
+            }
+
             if (error) {
-                return <div className="text-red-500 text-center p-4">{error}</div>;
+                return (
+                    <div className="p-6 max-w-6xl mx-auto">
+                        <div className="text-red-500 text-center p-4 bg-red-100 border-red-300 border rounded-lg">
+                            <h2 className="text-xl font-bold mb-2">Error Loading Calendar</h2>
+                            <p>{error}</p>
+                            <div className="mt-4 p-4 bg-yellow-50 border-yellow-200 border rounded text-left">
+                                <h3 className="font-semibold mb-2">Troubleshooting Help:</h3>
+                                <p className="mb-2">It looks like we couldn't find your events.json file. Here's how to fix it:</p>
+                                <ol className="list-decimal pl-5 space-y-1">
+                                    <li>Make sure your events.json file exists in one of these locations:
+                                        <ul className="list-disc pl-5 mt-1">
+                                            <li>public/data/events.json</li>
+                                            <li>data/events.json</li>
+                                            <li>events.json (at root)</li>
+                                        </ul>
+                                    </li>
+                                    <li>If you need to move the file, copy it to the root directory of your repository.</li>
+                                    <li>Ensure the file has proper JSON format.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                );
             }
 
             return (
