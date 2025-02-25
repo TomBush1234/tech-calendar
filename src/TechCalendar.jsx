@@ -55,7 +55,7 @@ const TechCalendar = () => {
         return response.json();
       })
       .then(data => setEventData(data))
-      .catch(err => setError(err.message));
+      .catch(err => setError(err.message));;
   }, []);
 
   const recurringEvents = useMemo(() => {
