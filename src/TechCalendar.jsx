@@ -47,7 +47,7 @@ function getNthDayOfMonth(year, month, dayOfWeek, n) {
   return targetDay;
 }
 
-const TechCalendar = () => {
+const TechCalendar = () => {console.log('TechCalendar component rendered');
   const [eventData, setEventData] = useState({ recurring: [], oneTime: [] });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -61,7 +61,7 @@ const TechCalendar = () => {
           throw new Error('Failed to load calendar data');
         }
         return response.json();
-      })
+      })console.log('Data fetched successfully', data);
       .then(data => setEventData(data))
       .catch(err => setError(err.message));;
   }, []);
@@ -117,7 +117,7 @@ const TechCalendar = () => {
     return <div className="text-red-500 text-center p-4">{error}</div>;
   }
 
-  return (
+  return (console.log('Rendering TechCalendar component');
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">2025 Tech Community Calendar</h1>
