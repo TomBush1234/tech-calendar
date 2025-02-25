@@ -76,7 +76,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <div class="version-badge">v1.04</div>
+    <div class="version-badge">v1.05</div>
 
     <!-- Main App -->
     <script type="text/babel">
@@ -131,6 +131,251 @@
         const DialogTitle = ({ children }) => (
             <h3 className="text-xl font-semibold">{children}</h3>
         );
+
+        // GitHub Integration Component
+        const GitHubIntegration = ({ eventData, onSuccess }) => {
+            const [repoInfo, setRepoInfo] = useState({
+                owner: '',
+                repo: '',
+            });
+            const [isPublishing, setIsPublishing] = useState(false);
+            const [publishStatus, setPublishStatus] = useState('');
+            const [accessToken, setAccessToken] = useState('');
+            
+            // Extract owner/repo from the current URL
+            useEffect(() => {
+                // Try to parse from URL if hosted on GitHub Pages
+                try {
+                    const url = window.location.hostname;
+                    if (url.includes('github.io')) {
+                        const repo = url.split('.')[0];
+                        
+                        // Try to get the stored owner value, otherwise guess it's the same as repo
+                        const storedOwner = localStorage.getItem('calendarRepoOwner') || repo;
+                        
+                        setRepoInfo({
+                            owner: storedOwner,
+                            repo: 'tech-calendar', // Most likely the repo name
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error parsing repo from URL:', e);
+                }
+                
+                // Try to get stored values
+                const storedOwner = localStorage.getItem('calendarRepoOwner');
+                const storedRepo = localStorage.getItem('calendarRepoName');
+                
+                if (storedOwner && storedRepo) {
+                    setRepoInfo({
+                        owner: storedOwner,
+                        repo: storedRepo,
+                    });
+                }
+            }, []);
+            
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setRepoInfo(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+            };
+            
+            const saveRepoInfo = () => {
+                localStorage.setItem('calendarRepoOwner', repoInfo.owner);
+                localStorage.setItem('calendarRepoName', repoInfo.repo);
+                alert('Repository information saved!');
+            };
+            
+            const triggerGitHubAction = async () => {
+                if (!repoInfo.owner || !repoInfo.repo || !accessToken) {
+                    alert('Please fill in all repository information and access token');
+                    return;
+                }
+                
+                setIsPublishing(true);
+                setPublishStatus('Connecting to GitHub...');
+                
+                try {
+                    // Format the data to be sent to GitHub Actions
+                    const eventJsonString = JSON.stringify(eventData, null, 2);
+                    
+                    // Create the repository_dispatch event
+                    const response = await fetch(
+                        `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/dispatches`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `token ${accessToken}`,
+                                'Accept': 'application/vnd.github.v3+json',
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                event_type: 'update-events',
+                                client_payload: {
+                                    events: eventJsonString
+                                }
+                            })
+                        }
+                    );
+                    
+                    if (response.status === 204) {
+                        // 204 No Content is success for this endpoint
+                        setPublishStatus('Update triggered successfully! GitHub Actions workflow is now running...');
+                        setTimeout(() => {
+                            setPublishStatus('Events published successfully!');
+                            if (onSuccess) onSuccess();
+                        }, 3000);
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'GitHub API returned an error');
+                    }
+                } catch (error) {
+                    console.error('Error triggering GitHub Action:', error);
+                    setPublishStatus(`Error: ${error.message || 'Failed to trigger update'}`);
+                } finally {
+                    setIsPublishing(false);
+                }
+            };
+            
+            return (
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="text-lg font-medium mb-2">GitHub Repository Information</h3>
+                        <p className="text-gray-600 mb-4">
+                            Enter your GitHub repository information to publish events directly.
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Repository Owner (Username or Organization)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="owner"
+                                    value={repoInfo.owner}
+                                    onChange={handleChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    placeholder="e.g., TomBush1234"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Repository Name
+                                </label>
+                                <input
+                                    type="text"
+                                    name="repo"
+                                    value={repoInfo.repo}
+                                    onChange={handleChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    placeholder="e.g., tech-calendar"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    GitHub Personal Access Token
+                                </label>
+                                <input
+                                    type="password"
+                                    value={accessToken}
+                                    onChange={(e) => setAccessToken(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    placeholder="ghp_xxxxxxxxxxxxxxxxxx"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Generate a token with 'repo' scope at{' '}
+                                    <a 
+                                        href="https://github.com/settings/tokens/new" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 hover:underline"
+                                    >
+                                        GitHub Token Settings
+                                    </a>
+                                </p>
+                            </div>
+                            
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    onClick={saveRepoInfo}
+                                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                >
+                                    Save Repository Info
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-lg font-medium mb-2">Publish Events to GitHub</h3>
+                        <p className="text-gray-600 mb-4">
+                            This will trigger a GitHub Actions workflow to update your events.json file.
+                        </p>
+                        
+                        <button
+                            onClick={triggerGitHubAction}
+                            disabled={isPublishing}
+                            className={`flex items-center gap-2 px-4 py-2 rounded ${
+                                isPublishing
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                            }`}
+                        >
+                            {isPublishing ? (
+                                <>
+                                    <Icon name="loader" className="animate-spin" />
+                                    <span>Publishing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Icon name="github" />
+                                    <span>Publish to GitHub</span>
+                                </>
+                            )}
+                        </button>
+                        
+                        {publishStatus && (
+                            <div className={`mt-4 p-3 rounded ${
+                                publishStatus.includes('Error')
+                                    ? 'bg-red-100 text-red-800'
+                                    : publishStatus.includes('success')
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-blue-100 text-blue-800'
+                            }`}>
+                                {publishStatus}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 mt-0.5">
+                                <Icon name="alert-circle" className="text-yellow-400" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">Important Notes</h3>
+                                <div className="text-sm text-yellow-700 mt-2">
+                                    <p className="mb-2">
+                                        Your Personal Access Token is only used to trigger the GitHub Action. 
+                                        It's never stored on our servers and is only kept in your browser for the current session.
+                                    </p>
+                                    <p>
+                                        Make sure you have the proper GitHub Actions workflow file setup in your repository.
+                                        The workflow should be in <code>.github/workflows/update-events.yml</code>.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
         
         // iCalendar helper functions
         const generateICalendar = (eventData, recurringEvents) => {
@@ -228,6 +473,7 @@
         // Admin Panel for exporting events
         const AdminPanel = ({ eventData, recurringEvents, onResetLocalEvents }) => {
             const [isOpen, setIsOpen] = useState(false);
+            const [activeTab, setActiveTab] = useState('export');
             
             const handleExportJSON = () => {
                 // Create formatted JSON string
@@ -269,6 +515,13 @@
                 }
             };
             
+            const handleGitHubSuccess = () => {
+                // Wait a short time then close the panel
+                setTimeout(() => {
+                    setIsOpen(false);
+                }, 5000);
+            };
+            
             return (
                 <>
                     <button 
@@ -280,85 +533,180 @@
                     </button>
                     
                     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                        <DialogContent className="sm:max-w-xl">
+                        <DialogContent className="sm:max-w-4xl">
                             <DialogHeader>
                                 <DialogTitle>Admin Tools</DialogTitle>
                             </DialogHeader>
                             
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-lg font-medium mb-2">Export Options</h3>
-                                    <p className="text-gray-600 mb-4">
-                                        Export the current calendar data to update your events.json file.
-                                    </p>
-                                    <div className="flex flex-wrap gap-3">
-                                        <button
-                                            onClick={handleExportJSON}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        >
-                                            <Icon name="download" />
-                                            <span>Download events.json</span>
-                                        </button>
-                                        <button
-                                            onClick={handleCopyJSON}
-                                            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                                        >
-                                            <Icon name="clipboard" />
-                                            <span>Copy to Clipboard</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <h3 className="text-lg font-medium mb-2">Calendar Subscription</h3>
-                                    <p className="text-gray-600 mb-4">
-                                        Download the iCalendar file to import or subscribe in your calendar application.
-                                    </p>
+                            {/* Tabs */}
+                            <div className="border-b border-gray-200 mb-4">
+                                <nav className="-mb-px flex space-x-8">
                                     <button
-                                        onClick={handleExportICalendar}
-                                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                                        onClick={() => setActiveTab('export')}
+                                        className={`pb-3 px-1 ${
+                                            activeTab === 'export'
+                                                ? 'border-b-2 border-blue-500 text-blue-600'
+                                                : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
                                     >
-                                        <Icon name="calendar" />
-                                        <span>Download Calendar (.ics)</span>
+                                        Export Options
                                     </button>
-                                </div>
-                                
-                                <div>
-                                    <h3 className="text-lg font-medium mb-2 text-red-600">Danger Zone</h3>
-                                    <p className="text-gray-600 mb-4">
-                                        Reset all locally stored events. This cannot be undone.
-                                    </p>
                                     <button
-                                        onClick={handleResetLocalEvents}
-                                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                        onClick={() => setActiveTab('github')}
+                                        className={`pb-3 px-1 ${
+                                            activeTab === 'github'
+                                                ? 'border-b-2 border-blue-500 text-blue-600'
+                                                : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
                                     >
-                                        <Icon name="trash-2" />
-                                        <span>Reset All Local Events</span>
+                                        GitHub Integration
                                     </button>
-                                </div>
-                                
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                                    <div className="flex items-start">
-                                        <div className="flex-shrink-0 mt-0.5">
-                                            <Icon name="info" className="text-yellow-400" />
+                                    <button
+                                        onClick={() => setActiveTab('subscription')}
+                                        className={`pb-3 px-1 ${
+                                            activeTab === 'subscription'
+                                                ? 'border-b-2 border-blue-500 text-blue-600'
+                                                : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        Calendar Subscription
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('danger')}
+                                        className={`pb-3 px-1 ${
+                                            activeTab === 'danger'
+                                                ? 'border-b-2 border-red-500 text-red-600'
+                                                : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        Danger Zone
+                                    </button>
+                                </nav>
+                            </div>
+                            
+                            {/* Tab Content */}
+                            {activeTab === 'export' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-lg font-medium mb-2">Export Options</h3>
+                                        <p className="text-gray-600 mb-4">
+                                            Export the current calendar data to update your events.json file.
+                                        </p>
+                                        <div className="flex flex-wrap gap-3">
+                                            <button
+                                                onClick={handleExportJSON}
+                                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                            >
+                                                <Icon name="download" />
+                                                <span>Download events.json</span>
+                                            </button>
+                                            <button
+                                                onClick={handleCopyJSON}
+                                                className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                            >
+                                                <Icon name="clipboard" />
+                                                <span>Copy to Clipboard</span>
+                                            </button>
                                         </div>
-                                        <div className="ml-3">
-                                            <h3 className="text-sm font-medium text-yellow-800">Important Note</h3>
-                                            <div className="text-sm text-yellow-700 mt-2">
-                                                <p className="mb-2">
-                                                    Changes made to events are stored in your browser's local storage. 
-                                                    To make these changes permanent in the GitHub repository, download 
-                                                    the updated events.json file and replace the existing one in your repo.
-                                                </p>
-                                                <p>
-                                                    The calendar subscription file (.ics) can be imported into Google Calendar, 
-                                                    Apple Calendar, Outlook, and other calendar applications.
-                                                </p>
+                                    </div>
+                                    
+                                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                                        <div className="flex items-start">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <Icon name="info" className="text-yellow-400" />
+                                            </div>
+                                            <div className="ml-3">
+                                                <h3 className="text-sm font-medium text-yellow-800">Manual Export Instructions</h3>
+                                                <div className="text-sm text-yellow-700 mt-2">
+                                                    <p>
+                                                        After downloading the events.json file, you'll need to manually 
+                                                        commit it to your GitHub repository. For automatic updates, use the 
+                                                        GitHub Integration tab.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
+                            
+                            {activeTab === 'github' && (
+                                <GitHubIntegration eventData={eventData} onSuccess={handleGitHubSuccess} />
+                            )}
+                            
+                            {activeTab === 'subscription' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-lg font-medium mb-2">Calendar Subscription</h3>
+                                        <p className="text-gray-600 mb-4">
+                                            Download the iCalendar file to import or subscribe in your calendar application.
+                                        </p>
+                                        <button
+                                            onClick={handleExportICalendar}
+                                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                                        >
+                                            <Icon name="calendar" />
+                                            <span>Download Calendar (.ics)</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+                                        <div className="flex items-start">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <Icon name="info" className="text-blue-400" />
+                                            </div>
+                                            <div className="ml-3">
+                                                <h3 className="text-sm font-medium text-blue-800">How to Subscribe</h3>
+                                                <div className="text-sm text-blue-700 mt-2">
+                                                    <p className="mb-2">
+                                                        The calendar subscription file (.ics) can be imported into Google Calendar, 
+                                                        Apple Calendar, Outlook, and other calendar applications.
+                                                    </p>
+                                                    <p>
+                                                        For dynamic calendar updates, you can host this .ics file on your 
+                                                        GitHub Pages site and set up a subscription URL in your calendar app.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {activeTab === 'danger' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-lg font-medium mb-2 text-red-600">Danger Zone</h3>
+                                        <p className="text-gray-600 mb-4">
+                                            Reset all locally stored events. This cannot be undone.
+                                        </p>
+                                        <button
+                                            onClick={handleResetLocalEvents}
+                                            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                                        >
+                                            <Icon name="trash-2" />
+                                            <span>Reset All Local Events</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="bg-red-50 border-l-4 border-red-400 p-4">
+                                        <div className="flex items-start">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <Icon name="alert-triangle" className="text-red-400" />
+                                            </div>
+                                            <div className="ml-3">
+                                                <h3 className="text-sm font-medium text-red-800">Warning</h3>
+                                                <div className="text-sm text-red-700 mt-2">
+                                                    <p>
+                                                        This will permanently remove all locally created or modified events from your browser.
+                                                        Make sure to export your events before resetting if you want to keep your changes.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </DialogContent>
                     </Dialog>
                 </>
