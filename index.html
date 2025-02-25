@@ -51,10 +51,19 @@
             transform: rotate(90deg);
             transition: transform 0.2s;
         }
+        
+        .version-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <div class="version-badge">v1.01</div>
 
     <!-- Main App -->
     <script type="text/babel">
@@ -326,18 +335,61 @@
         };
         
         // Event Creator Component
-        const EventCreator = ({ onSaveEvent, onCancel }) => {
-            const [formData, setFormData] = useState({
-                title: "",
-                type: "meetup",
-                date: "",
-                description: "",
-                organizer: "",
-                sponsors: "",
-                needsSponsors: false,
-                isMajor: false,
-                newsWorthy: false,
-                location: ""
+        const EventCreator = ({ onSaveEvent, onCancel, editEvent = null }) => {
+            const [isRecurring, setIsRecurring] = useState(editEvent ? editEvent.type === 'recurring' : false);
+            const [formData, setFormData] = useState(() => {
+                if (editEvent) {
+                    // If we're editing, populate the form with the event data
+                    if (editEvent.type === 'recurring') {
+                        // Format for recurring event
+                        return {
+                            id: editEvent.id,
+                            title: editEvent.title,
+                            type: 'recurring',
+                            description: editEvent.description,
+                            location: editEvent.location || '',
+                            organizers: editEvent.organizers ? editEvent.organizers.join(', ') : '',
+                            sponsors: editEvent.sponsors ? editEvent.sponsors.join(', ') : '',
+                            needsSponsors: editEvent.needsSponsors || false,
+                            isMajor: editEvent.isMajor || false,
+                            newsWorthy: editEvent.newsWorthy || false,
+                            dayOfWeek: editEvent.dayOfWeek || 0,
+                            occurrences: editEvent.occurrences ? editEvent.occurrences.join(', ') : ''
+                        };
+                    } else {
+                        // Format for one-time event
+                        return {
+                            id: editEvent.id,
+                            title: editEvent.title,
+                            type: editEvent.type,
+                            date: editEvent.date ? editEvent.date.substring(0, 10) : '', // Extract YYYY-MM-DD
+                            description: editEvent.description,
+                            organizer: editEvent.organizer || '',
+                            location: editEvent.location || '',
+                            sponsors: editEvent.sponsors ? editEvent.sponsors.join(', ') : '',
+                            needsSponsors: editEvent.needsSponsors || false,
+                            isMajor: editEvent.isMajor || false,
+                            newsWorthy: editEvent.newsWorthy || false
+                        };
+                    }
+                } else {
+                    // Default empty form for new event
+                    return {
+                        title: "",
+                        type: "meetup",
+                        date: "",
+                        description: "",
+                        organizer: "",
+                        organizers: "",
+                        sponsors: "",
+                        needsSponsors: false,
+                        isMajor: false,
+                        newsWorthy: false,
+                        location: "",
+                        dayOfWeek: 1, // Monday
+                        occurrences: "1, 3" // 1st and 3rd occurrences
+                    };
+                }
             });
             
             const handleChange = (e) => {
@@ -345,6 +397,15 @@
                 setFormData(prev => ({
                     ...prev,
                     [name]: type === 'checkbox' ? checked : value
+                }));
+            };
+            
+            const handleEventTypeChange = (e) => {
+                const newValue = e.target.value;
+                setIsRecurring(newValue === 'recurring');
+                setFormData(prev => ({
+                    ...prev,
+                    type: newValue
                 }));
             };
             
@@ -356,28 +417,90 @@
                     ? formData.sponsors.split(',').map(s => s.trim()).filter(s => s !== "")
                     : [];
                 
-                // Create event object
-                const newEvent = {
-                    id: `event-${Date.now()}`,
-                    title: formData.title,
-                    type: formData.type,
-                    date: formData.date,
-                    description: formData.description,
-                    organizer: formData.organizer,
-                    sponsors: sponsorsArray,
-                    needsSponsors: formData.needsSponsors,
-                    isMajor: formData.isMajor,
-                    newsWorthy: formData.newsWorthy,
-                    location: formData.location
-                };
-                
-                onSaveEvent(newEvent);
+                if (isRecurring) {
+                    // Handle recurring event
+                    const organizersArray = formData.organizers
+                        ? formData.organizers.split(',').map(s => s.trim()).filter(s => s !== "")
+                        : [];
+                    
+                    const occurrencesArray = formData.occurrences
+                        ? formData.occurrences.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+                        : [];
+                    
+                    const recurringEvent = {
+                        id: formData.id || `recurring-${Date.now()}`,
+                        title: formData.title,
+                        type: 'recurring',
+                        description: formData.description,
+                        location: formData.location,
+                        organizers: organizersArray,
+                        dayOfWeek: parseInt(formData.dayOfWeek),
+                        occurrences: occurrencesArray,
+                        sponsors: sponsorsArray,
+                        needsSponsors: formData.needsSponsors,
+                        isMajor: formData.isMajor,
+                        newsWorthy: formData.newsWorthy
+                    };
+                    
+                    onSaveEvent(recurringEvent, editEvent ? true : false);
+                } else {
+                    // Handle one-time event
+                    const oneTimeEvent = {
+                        id: formData.id || `event-${Date.now()}`,
+                        title: formData.title,
+                        type: formData.type,
+                        date: formData.date,
+                        description: formData.description,
+                        organizer: formData.organizer,
+                        location: formData.location,
+                        sponsors: sponsorsArray,
+                        needsSponsors: formData.needsSponsors,
+                        isMajor: formData.isMajor,
+                        newsWorthy: formData.newsWorthy
+                    };
+                    
+                    onSaveEvent(oneTimeEvent, editEvent ? true : false);
+                }
             };
             
             return (
                 <div className="p-4">
-                    <h2 className="text-2xl font-bold mb-4">Create New Event</h2>
+                    <h2 className="text-2xl font-bold mb-4">
+                        {editEvent ? 'Edit Event' : 'Create New Event'}
+                    </h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="oneTimeEvent"
+                                    name="eventType"
+                                    checked={!isRecurring}
+                                    value="meetup"
+                                    onChange={handleEventTypeChange}
+                                    className="h-4 w-4 text-blue-600 border-gray-300"
+                                />
+                                <label htmlFor="oneTimeEvent" className="ml-2 block text-sm text-gray-700">
+                                    One-time Event
+                                </label>
+                            </div>
+                            
+                            <div className="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="recurringEvent"
+                                    name="eventType"
+                                    checked={isRecurring}
+                                    value="recurring"
+                                    onChange={handleEventTypeChange}
+                                    className="h-4 w-4 text-blue-600 border-gray-300"
+                                />
+                                <label htmlFor="recurringEvent" className="ml-2 block text-sm text-gray-700">
+                                    Recurring Event
+                                </label>
+                            </div>
+                        </div>
+                        
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Event Title*
@@ -392,37 +515,109 @@
                             />
                         </div>
                         
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Event Type*
-                            </label>
-                            <select
-                                name="type"
-                                value={formData.type}
-                                onChange={handleChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                required
-                            >
-                                <option value="meetup">Meetup</option>
-                                <option value="workshop">Workshop</option>
-                                <option value="conference">Conference</option>
-                                <option value="hackathon">Hackathon</option>
-                            </select>
-                        </div>
+                        {!isRecurring && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Event Type*
+                                    </label>
+                                    <select
+                                        name="type"
+                                        value={formData.type}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        required
+                                    >
+                                        <option value="meetup">Meetup</option>
+                                        <option value="workshop">Workshop</option>
+                                        <option value="conference">Conference</option>
+                                        <option value="hackathon">Hackathon</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Date*
+                                    </label>
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        value={formData.date}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Organizer*
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="organizer"
+                                        value={formData.organizer}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        required
+                                    />
+                                </div>
+                            </>
+                        )}
                         
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Date*
-                            </label>
-                            <input
-                                type="date"
-                                name="date"
-                                value={formData.date}
-                                onChange={handleChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                required
-                            />
-                        </div>
+                        {isRecurring && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Day of Week*
+                                    </label>
+                                    <select
+                                        name="dayOfWeek"
+                                        value={formData.dayOfWeek}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        required
+                                    >
+                                        <option value="0">Sunday</option>
+                                        <option value="1">Monday</option>
+                                        <option value="2">Tuesday</option>
+                                        <option value="3">Wednesday</option>
+                                        <option value="4">Thursday</option>
+                                        <option value="5">Friday</option>
+                                        <option value="6">Saturday</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Occurrences (comma-separated, e.g., "1, 3" for 1st and 3rd weeks)*
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="occurrences"
+                                        value={formData.occurrences}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        placeholder="1, 3"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Organizers (comma-separated)*
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="organizers"
+                                        value={formData.organizers}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        required
+                                    />
+                                </div>
+                            </>
+                        )}
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -436,20 +631,6 @@
                                 rows="3"
                                 required
                             ></textarea>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Organizer*
-                            </label>
-                            <input
-                                type="text"
-                                name="organizer"
-                                value={formData.organizer}
-                                onChange={handleChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                required
-                            />
                         </div>
                         
                         <div>
@@ -528,7 +709,7 @@
                                 type="submit"
                                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                             >
-                                Save Event
+                                {editEvent ? 'Update Event' : 'Save Event'}
                             </button>
                             <button
                                 type="button"
@@ -575,45 +756,26 @@
             return targetDay;
         }
         
-        // Function to merge original data with local storage data
-        const mergeWithLocalStorage = (originalData) => {
-            const localEvents = localStorage.getItem('techCalendarEvents');
-            
-            if (!localEvents) {
-                return originalData;
-            }
-            
-            try {
-                const parsedLocalEvents = JSON.parse(localEvents);
-                
-                // Return merged data
-                return {
-                    recurring: originalData.recurring,
-                    oneTime: [...originalData.oneTime, ...parsedLocalEvents]
-                };
-            } catch (error) {
-                console.error('Error parsing local events:', error);
-                return originalData;
-            }
-        };
-
+        // Main TechCalendar component
         const TechCalendar = () => {
             const [baseEventData, setBaseEventData] = useState({ recurring: [], oneTime: [] });
             const [localEvents, setLocalEvents] = useState([]);
+            const [localRecurringEvents, setLocalRecurringEvents] = useState([]);
             const [selectedEvent, setSelectedEvent] = useState(null);
             const [isDialogOpen, setIsDialogOpen] = useState(false);
             const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'sponsors'
             const [error, setError] = useState(null);
             const [loading, setLoading] = useState(true);
             const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+            const [editingEvent, setEditingEvent] = useState(null);
             
             // Combined event data (base + local)
             const eventData = useMemo(() => {
                 return {
-                    recurring: baseEventData.recurring,
+                    recurring: [...baseEventData.recurring, ...localRecurringEvents],
                     oneTime: [...baseEventData.oneTime, ...localEvents]
                 };
-            }, [baseEventData, localEvents]);
+            }, [baseEventData, localEvents, localRecurringEvents]);
 
             // Load events from remote and local storage
             useEffect(() => {
@@ -621,17 +783,31 @@
                     setLoading(true);
                     
                     // Try to load events from local storage first
-                    const storedEvents = localStorage.getItem('techCalendarEvents');
-                    let localEventsList = [];
+                    const storedOneTimeEvents = localStorage.getItem('techCalendarEvents');
+                    const storedRecurringEvents = localStorage.getItem('techCalendarRecurringEvents');
                     
-                    if (storedEvents) {
+                    let localEventsList = [];
+                    let localRecurringList = [];
+                    
+                    if (storedOneTimeEvents) {
                         try {
-                            localEventsList = JSON.parse(storedEvents);
+                            localEventsList = JSON.parse(storedOneTimeEvents);
                             setLocalEvents(localEventsList);
                         } catch (error) {
                             console.error('Error parsing local events:', error);
                             // Clear corrupted data
                             localStorage.removeItem('techCalendarEvents');
+                        }
+                    }
+                    
+                    if (storedRecurringEvents) {
+                        try {
+                            localRecurringList = JSON.parse(storedRecurringEvents);
+                            setLocalRecurringEvents(localRecurringList);
+                        } catch (error) {
+                            console.error('Error parsing local recurring events:', error);
+                            // Clear corrupted data
+                            localStorage.removeItem('techCalendarRecurringEvents');
                         }
                     }
                     
@@ -661,7 +837,7 @@
                         }
                     }
                     
-                    if (!fetchedRemote && localEventsList.length === 0) {
+                    if (!fetchedRemote && localEventsList.length === 0 && localRecurringList.length === 0) {
                         setError("Couldn't load calendar data. Please check the events.json location.");
                     } else if (!fetchedRemote) {
                         // We have local events but no remote - create an empty base
@@ -736,24 +912,105 @@
             
             // Handle clicking on an event
             const handleEventClick = (event) => {
-                setSelectedEvent(event);
+                // Find the original event (not the recurring instance)
+                let originalEvent = event;
+                
+                // If this is a recurring event instance, find the original template
+                if (event.id.includes('-202')) { // It's a recurring instance with date in ID
+                    const baseId = event.id.split('-2')[0]; // Get the base ID part
+                    
+                    // Look for the original recurring event
+                    const recurringTemplate = eventData.recurring.find(e => e.id === baseId);
+                    if (recurringTemplate) {
+                        originalEvent = {
+                            ...recurringTemplate,
+                            instanceDate: event.date // Keep the specific date for reference
+                        };
+                    }
+                }
+                
+                setSelectedEvent(originalEvent);
                 setIsDialogOpen(true);
             };
             
-            // Handle creating a new event
-            const handleSaveEvent = (newEvent) => {
-                // Add the new event to local storage
-                const updatedLocalEvents = [...localEvents, newEvent];
-                setLocalEvents(updatedLocalEvents);
+            // Handle editing an event
+            const handleEditEvent = () => {
+                setEditingEvent(selectedEvent);
+                setIsDialogOpen(false);
+                setIsCreateEventOpen(true);
+            };
+            
+            // Handle saving/updating an event
+            const handleSaveEvent = (newEvent, isEditing) => {
+                if (isEditing) {
+                    // Handle event update
+                    if (newEvent.type === 'recurring') {
+                        // Update recurring event
+                        let updatedRecurring;
+                        
+                        if (selectedEvent.id.startsWith('recurring-')) {
+                            // It's a locally created recurring event
+                            updatedRecurring = localRecurringEvents.map(event => 
+                                event.id === selectedEvent.id ? newEvent : event
+                            );
+                            setLocalRecurringEvents(updatedRecurring);
+                            localStorage.setItem('techCalendarRecurringEvents', JSON.stringify(updatedRecurring));
+                        } else {
+                            // It might be a base event, but we'll add it as a local override 
+                            // First remove any existing overrides
+                            const filteredRecurring = localRecurringEvents.filter(event => 
+                                event.id !== selectedEvent.id
+                            );
+                            
+                            updatedRecurring = [...filteredRecurring, newEvent];
+                            setLocalRecurringEvents(updatedRecurring);
+                            localStorage.setItem('techCalendarRecurringEvents', JSON.stringify(updatedRecurring));
+                        }
+                    } else {
+                        // Update one-time event
+                        if (selectedEvent.id.startsWith('event-')) {
+                            // It's a locally created event
+                            const updatedEvents = localEvents.map(event => 
+                                event.id === selectedEvent.id ? newEvent : event
+                            );
+                            setLocalEvents(updatedEvents);
+                            localStorage.setItem('techCalendarEvents', JSON.stringify(updatedEvents));
+                        } else {
+                            // It's a base event, we'll add it as a local override
+                            // First remove it from the local events if it exists
+                            const filteredEvents = localEvents.filter(event => 
+                                event.id !== selectedEvent.id
+                            );
+                            
+                            const updatedEvents = [...filteredEvents, newEvent];
+                            setLocalEvents(updatedEvents);
+                            localStorage.setItem('techCalendarEvents', JSON.stringify(updatedEvents));
+                        }
+                    }
+                    
+                    // Show success message
+                    alert(`Event "${newEvent.title}" has been updated!`);
+                } else {
+                    // Handle new event creation
+                    if (newEvent.type === 'recurring') {
+                        // Save recurring event
+                        const updatedRecurring = [...localRecurringEvents, newEvent];
+                        setLocalRecurringEvents(updatedRecurring);
+                        localStorage.setItem('techCalendarRecurringEvents', JSON.stringify(updatedRecurring));
+                    } else {
+                        // Save one-time event
+                        const updatedEvents = [...localEvents, newEvent];
+                        setLocalEvents(updatedEvents);
+                        localStorage.setItem('techCalendarEvents', JSON.stringify(updatedEvents));
+                    }
+                    
+                    // Show success message
+                    alert(`Event "${newEvent.title}" has been created and saved to your browser!`);
+                }
                 
-                // Save to localStorage
-                localStorage.setItem('techCalendarEvents', JSON.stringify(updatedLocalEvents));
-                
-                // Close the create event dialog
+                // Reset and close
+                setEditingEvent(null);
                 setIsCreateEventOpen(false);
-                
-                // Show a success message
-                alert(`Event "${newEvent.title}" has been created and saved to your browser!`);
             };
 
             if (loading) {
@@ -794,7 +1051,10 @@
                         </h1>
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setIsCreateEventOpen(true)}
+                                onClick={() => {
+                                    setEditingEvent(null);
+                                    setIsCreateEventOpen(true);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                             >
                                 <span>Create Event</span>
@@ -820,7 +1080,7 @@
                     </div>
                     
                     {/* Message about local storage */}
-                    {localEvents.length > 0 && (
+                    {(localEvents.length > 0 || localRecurringEvents.length > 0) && (
                         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
                             <div className="flex">
                                 <div className="flex-shrink-0">
@@ -828,7 +1088,7 @@
                                 </div>
                                 <div className="ml-3">
                                     <p className="text-sm text-blue-700">
-                                        You have {localEvents.length} locally created event{localEvents.length !== 1 ? 's' : ''}.
+                                        You have {localEvents.length + localRecurringEvents.length} locally created/modified event{(localEvents.length + localRecurringEvents.length) !== 1 ? 's' : ''}.
                                         Use the Admin Tools button at the bottom right to export all events.
                                     </p>
                                 </div>
@@ -920,14 +1180,47 @@
                         {selectedEvent && (
                             <DialogContent className="sm:max-w-md">
                                 <DialogHeader>
-                                    <DialogTitle>{selectedEvent.title}</DialogTitle>
+                                    <div className="flex justify-between items-center">
+                                        <DialogTitle>{selectedEvent.title}</DialogTitle>
+                                        <button 
+                                            onClick={handleEditEvent}
+                                            className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
+                                        >
+                                            <Icon name="edit-2" />
+                                            <span>Edit</span>
+                                        </button>
+                                    </div>
                                 </DialogHeader>
                                 <div className="space-y-4">
                                     <p>{selectedEvent.description}</p>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="calendar" />
-                                        <span>{formatDate(selectedEvent.date)}</span>
-                                    </div>
+                                    {selectedEvent.instanceDate && (
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="calendar" />
+                                            <span>{formatDate(selectedEvent.instanceDate)}</span>
+                                            <span className="text-sm text-gray-500">(Recurring)</span>
+                                        </div>
+                                    )}
+                                    {!selectedEvent.instanceDate && selectedEvent.date && (
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="calendar" />
+                                            <span>{formatDate(selectedEvent.date)}</span>
+                                        </div>
+                                    )}
+                                    {selectedEvent.type === 'recurring' && !selectedEvent.instanceDate && (
+                                        <div className="flex items-center gap-2">
+                                            <Icon name="repeat" />
+                                            <span>
+                                                Recurs on {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedEvent.dayOfWeek]},
+                                                {selectedEvent.occurrences.map((n, i) => (
+                                                    <span key={i}>
+                                                        {i === 0 ? ' ' : ', '}
+                                                        {n}{n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'} week
+                                                    </span>
+                                                ))}
+                                                of each month
+                                            </span>
+                                        </div>
+                                    )}
                                     {selectedEvent.location && (
                                         <div className="flex items-center gap-2">
                                             <Icon name="map-pin" />
@@ -987,12 +1280,19 @@
                         )}
                     </Dialog>
                     
-                    {/* Create Event Dialog */}
-                    <Dialog open={isCreateEventOpen} onOpenChange={setIsCreateEventOpen}>
+                    {/* Create/Edit Event Dialog */}
+                    <Dialog open={isCreateEventOpen} onOpenChange={(open) => {
+                        if (!open) setEditingEvent(null);
+                        setIsCreateEventOpen(open);
+                    }}>
                         <DialogContent className="sm:max-w-lg">
                             <EventCreator 
                                 onSaveEvent={handleSaveEvent}
-                                onCancel={() => setIsCreateEventOpen(false)}
+                                onCancel={() => {
+                                    setEditingEvent(null);
+                                    setIsCreateEventOpen(false);
+                                }}
+                                editEvent={editingEvent}
                             />
                         </DialogContent>
                     </Dialog>
@@ -1006,12 +1306,6 @@
         const App = () => {
             return (
                 <div className="container mx-auto px-4">
-                    <nav className="py-4">
-                        <ul className="flex space-x-4">
-                            <li><a href="#calendar" className="text-blue-600 hover:text-blue-800">Calendar</a></li>
-                        </ul>
-                    </nav>
-                    
                     <div id="calendar" className="py-4">
                         <TechCalendar />
                     </div>
