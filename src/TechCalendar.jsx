@@ -1,5 +1,13 @@
  import React, { useState, useMemo, useEffect } from 'react';
-import { Calendar, Clock, Star, Download, MapPin, Users, DollarSign, Building2, Zap } from 'lucide-react';
+import Calendar from 'lucide-react/dist/esm/icons/calendar';
+import Clock from 'lucide-react/dist/esm/icons/clock';
+import Star from 'lucide-react/dist/esm/icons/star';
+import Building2 from 'lucide-react/dist/esm/icons/building-2';
+import DollarSign from 'lucide-react/dist/esm/icons/dollar-sign';
+import MapPin from 'lucide-react/dist/esm/icons/map-pin';
+import Users from 'lucide-react/dist/esm/icons/users';
+import Download from 'lucide-react/dist/esm/icons/download';
+import Zap from 'lucide-react/dist/esm/icons/zap';;
 import {
   Dialog,
   DialogContent,
